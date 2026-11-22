@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RecallRocket — SM-2 Spaced Repetition & Campus Mastery</title>
+  <meta name="description" content="Intelligent spaced repetition flashcard application powered by SuperMemo-2 (SM-2) scheduling, daily streak tracking, and campus cohort leaderboards.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Chart.js for Retention & Forgetting Curve -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Canvas Confetti for Streak & Session Celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+</head>
+<body class="light-theme">
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-logo" id="btnLogo">
+          <span class="logo-icon">🚀</span>
+          <div class="brand-text">
+            <span class="brand-name">RecallRocket</span>
+            <span class="brand-tagline">SM-2 Spaced Repetition</span>
+          </div>
+        </div>
+        <div class="cohort-badge">
+          <span class="badge-dot"></span>
+          <span class="cohort-name">🏛️ Tech Campus Cohort</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <button class="nav-btn active" data-view="decks">
+          <span class="nav-icon">🗂️</span> Decks
+        </button>
+        <button class="nav-btn" data-view="review">
+          <span class="nav-icon">⚡</span> Study Due
+          <span class="badge-pill due-pill" id="navDueCount">5</span>
+        </button>
+        <button class="nav-btn" data-view="leaderboard">
+          <span class="nav-icon">🏆</span> Leaderboard
+        </button>
+        <button class="nav-btn" data-view="analytics">
+          <span class="nav-icon">📈</span> Retention Curve
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Streak Flame Counter -->
+        <button class="streak-badge-btn" id="btnStreakModal" title="Click to view Streak & Study History">
+          <span class="streak-flame">🔥</span>
+          <span class="streak-count" id="headerStreakCount">6</span>
+          <span class="streak-label">Days</span>
+        </button>
+
+        <!-- Retention Points / User Rank Pill -->
+        <div class="user-rank-pill" id="headerUserRankPill" title="Your current Campus Leaderboard Standing">
+          <span class="rank-trophy">🥉</span>
+          <span class="rank-pos" id="headerRankText">#3 Alex Chen</span>
+          <span class="rank-pts" id="headerPointsText">2,450 pts</span>
+        </div>
+
+        <!-- Quick Action Menu Buttons -->
+        <button class="btn btn-outline btn-sm" id="btnOpenAiModal" title="Generate flashcards from lecture notes">
+          <span>✨</span> AI Generate
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btnResetDemo" title="Reset to pristine 5-card Algorithms demo scenario">
+          <span>🔄</span> Reset Demo
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner / Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Rank Jump Celebration Overlay -->
+  <div class="celebration-overlay hidden" id="rankCelebrationOverlay">
+    <div class="celebration-card">
+      <div class="celebration-icon">🏆</div>
+      <h2 class="celebration-title">CAMPUS RANK UPGRADE!</h2>
+      <p class="celebration-desc" id="rankCelebrationText">You just jumped from <strong>#3</strong> to <strong>#2</strong> on the Campus Leaderboard!</p>
+      <div class="rank-transition">
+        <span class="rank-prev">#3 Bronze</span>
+        <span class="rank-arrow">➜</span>
+        <span class="rank-next">🥈 #2 Silver Master</span>
+      </div>
+      <button class="btn btn-primary" id="btnCloseRankCelebration">View Leaderboard</button>
+    </div>
+  </div>
+
+  <!-- Main App Content -->
+  <main class="main-content">
+
+    <!-- ======================================================== -->
+    <!-- VIEW 1: DECKS DASHBOARD                                  -->
+    <!-- ======================================================== -->
+    <section class="view-panel active" id="viewDecks">
+      <div class="dashboard-hero">
+        <div class="hero-text">
+          <h1 class="hero-title">Master Your Coursework With Science</h1>
+          <p class="hero-subtitle">
+            Combats the Ebbinghaus forgetting curve using the proven <strong>SuperMemo-2 (SM-2)</strong> algorithm. Study cards exactly when your memory needs reinforcement.
+          </p>
+        </div>
+        <div class="hero-stats-banner">
+          <div class="hero-stat">
+            <span class="stat-value text-indigo" id="statTotalDue">5</span>
+            <span class="stat-label">Cards Due Today</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value text-amber" id="statStreak">6 Days</span>
+            <span class="stat-label">Daily Study Streak</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value text-emerald" id="statRetentionRate">92%</span>
+            <span class="stat-label">Target Retention</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <span class="stat-value text-violet" id="statCampusRank">#3</span>
+            <span class="stat-label">Campus Standing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Toolbar -->
+      <div class="section-toolbar">
+        <div class="toolbar-left">
+          <h2 class="section-title">Your Flashcard Decks</h2>
+          <span class="deck-count-tag" id="deckCountTag">4 Decks</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-primary" id="btnStudyAllDue">
+            <span>⚡</span> Review Due Today (<span id="btnDueCountText">5</span>)
+          </button>
+          <button class="btn btn-secondary" id="btnOpenNewDeckModal">
+            <span>+</span> New Subject Deck
+          </button>
+          <button class="btn btn-outline" id="btnOpenImportModal">
+            <span>📥</span> Import / Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Decks Grid -->
+      <div class="decks-grid" id="decksGrid">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 2: STUDY REVIEW SESSION (3D FLASHCARD FLIP)         -->
+    <!-- ======================================================== -->
+    <section class="view-panel" id="viewReview">
+      <div class="study-session-container">
+        <!-- Session Header Bar -->
+        <div class="study-header-bar">
+          <div class="study-deck-info">
+            <span class="study-deck-badge" id="studyDeckBadge">⚡ Algorithms</span>
+            <span class="study-card-counter" id="studyCardCounter">Card 1 of 5</span>
+          </div>
+          <div class="study-progress-wrapper">
+            <div class="study-progress-track">
+              <div class="study-progress-fill" id="studyProgressFill" style="width: 20%;"></div>
+            </div>
+            <span class="study-progress-percent" id="studyProgressPercent">20%</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btnExitReview">
+            ✕ Exit Session
+          </button>
+        </div>
+
+        <!-- 3D Flashcard Component -->
+        <div class="flashcard-scene" id="flashcardScene">
+          <div class="flashcard-flipper" id="flashcardFlipper">
+
+            <!-- FRONT OF CARD -->
+            <div class="flashcard-face flashcard-front">
+              <div class="card-face-header">
+                <div class="card-tags-list" id="cardFrontTags">
+                  <span class="tag-pill">Algorithms</span>
+                  <span class="tag-pill">Sorting</span>
+                </div>
+                <div class="card-actions-top">
+                  <button class="icon-btn audio-btn" id="btnFrontAudio" title="Pronounce / Read Question">
+                    🔊 Listen
+                  </button>
+                  <span class="flip-hint-badge">Front (Question)</span>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div class="card-question-text" id="cardQuestionText">
+                  What is the time complexity of QuickSort?
+                </div>
+              </div>
+
+              <div class="card-face-footer">
+                <span class="shortcut-tip"><kbd>Space</kbd> or click to reveal answer</span>
+                <button class="btn btn-primary btn-flip" id="btnFlipCard">
+                  Flip Card <span>↻</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- BACK OF CARD -->
+            <div class="flashcard-face flashcard-back">
+              <div class="card-face-header">
+                <div class="card-tags-list" id="cardBackTags">
+                  <span class="tag-pill tag-answer">Detailed Answer</span>
+                </div>
+                <div class="card-actions-top">
+                  <button class="icon-btn audio-btn" id="btnBackAudio" title="Pronounce / Read Answer">
+                    🔊 Listen
+                  </button>
+                  <span class="flip-hint-badge">Back (Answer)</span>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div class="card-answer-text" id="cardAnswerText">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- SM-2 Recall Rating Grade Buttons (0 - 5) -->
+              <div class="rating-grade-container">
+                <div class="rating-prompt">
+                  <span class="rating-title">How well did you recall this concept?</span>
+                  <span class="rating-subtitle">SM-2 algorithm calculates your optimal review interval</span>
+                </div>
+                <div class="rating-buttons-grid">
+                  <button class="rating-btn rate-0" data-grade="0" title="Complete Blackout [0]">
+                    <span class="rating-key">0</span>
+                    <span class="rating-name">Blackout</span>
+                    <span class="interval-preview" id="previewGrade0">1d</span>
+                  </button>
+                  <button class="rating-btn rate-1" data-grade="1" title="Incorrect [1]">
+                    <span class="rating-key">1</span>
+                    <span class="rating-name">Incorrect</span>
+                    <span class="interval-preview" id="previewGrade1">1d</span>
+                  </button>
+                  <button class="rating-btn rate-2" data-grade="2" title="Hard [2]">
+                    <span class="rating-key">2</span>
+                    <span class="rating-name">Hard</span>
+                    <span class="interval-preview" id="previewGrade2">1d</span>
+                  </button>
+                  <button class="rating-btn rate-3" data-grade="3" title="Pass with difficulty [3]">
+                    <span class="rating-key">3</span>
+                    <span class="rating-name">Pass</span>
+                    <span class="interval-preview" id="previewGrade3">1d</span>
+                  </button>
+                  <button class="rating-btn rate-4" data-grade="4" title="Good recall [4]">
+                    <span class="rating-key">4</span>
+                    <span class="rating-name">Good</span>
+                    <span class="interval-preview" id="previewGrade4">6d</span>
+                  </button>
+                  <button class="rating-btn rate-5" data-grade="5" title="Perfect immediate recall [5]">
+                    <span class="rating-key">5</span>
+                    <span class="rating-name">Perfect</span>
+                    <span class="interval-preview" id="previewGrade5">6d</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Real-Time SM-2 Scheduling Inspector Panel -->
+        <div class="sm2-inspector-card" id="sm2InspectorCard">
+          <div class="inspector-header">
+            <span class="inspector-title">⚡ Live SuperMemo-2 Scheduling Engine</span>
+            <span class="inspector-chip">Current Card State</span>
+          </div>
+          <div class="inspector-grid">
+            <div class="inspector-col">
+              <span class="col-label">Repetitions (R)</span>
+              <span class="col-value" id="inspectReps">1</span>
+            </div>
+            <div class="inspector-col">
+              <span class="col-label">Ease Factor (EF)</span>
+              <span class="col-value" id="inspectEF">2.50</span>
+            </div>
+            <div class="inspector-col">
+              <span class="col-label">Current Interval (I)</span>
+              <span class="col-value" id="inspectInterval">1 Day</span>
+            </div>
+            <div class="inspector-col">
+              <span class="col-label">Schedule Calculation</span>
+              <span class="col-value text-indigo" id="inspectFormula">EF' = EF + (0.1 - (5 - q) × ...)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Session Completed View (Shown when queue is cleared) -->
+      <div class="session-completed-card hidden" id="sessionCompletedCard">
+        <div class="completion-hero">
+          <div class="completion-icon">🎉</div>
+          <h2 class="completion-title">Study Session Completed!</h2>
+          <p class="completion-subtitle">All scheduled cards reviewed with SuperMemo-2 spaced intervals.</p>
+        </div>
+
+        <!-- Streak Achievement Banner -->
+        <div class="achievement-banner" id="sessionAchievementBanner">
+          <div class="achievement-flame">🔥</div>
+          <div class="achievement-info">
+            <h3 class="achievement-heading">7-Day Daily Study Streak Unlocked!</h3>
+            <p class="achievement-sub">You studied consecutive days and unlocked the <strong>7-Day Consistent Scholar</strong> badge.</p>
+          </div>
+          <span class="achievement-tag">NEW BADGE</span>
+        </div>
+
+        <!-- Session Stat Highlights -->
+        <div class="session-stats-grid">
+          <div class="session-stat-box">
+            <span class="stat-num text-indigo" id="sessionCardsCount">5</span>
+            <span class="stat-lbl">Cards Mastered</span>
+          </div>
+          <div class="session-stat-box">
+            <span class="stat-num text-emerald" id="sessionAccuracy">100%</span>
+            <span class="stat-lbl">Recall Accuracy</span>
+          </div>
+          <div class="session-stat-box">
+            <span class="stat-num text-amber" id="sessionPointsEarned">+185</span>
+            <span class="stat-lbl">Retention Pts Earned</span>
+          </div>
+          <div class="session-stat-box">
+            <span class="stat-num text-violet" id="sessionNextRank">#2</span>
+            <span class="stat-lbl">New Campus Rank</span>
+          </div>
+        </div>
+
+        <div class="completion-actions">
+          <button class="btn btn-primary btn-lg" id="btnGoToLeaderboard">
+            🏆 View Campus Leaderboard
+          </button>
+          <button class="btn btn-secondary btn-lg" id="btnBackToDecks">
+            🗂️ Return to Decks
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 3: CAMPUS LEADERBOARD                               -->
+    <!-- ======================================================== -->
+    <section class="view-panel" id="viewLeaderboard">
+      <div class="leaderboard-header">
+        <div>
+          <h1 class="view-heading">🏛️ Campus Study Leaderboard</h1>
+          <p class="view-subheading">Gamified cohort rankings based on daily study streaks, cards reviewed, and long-term memory retention points.</p>
+        </div>
+        <div class="leaderboard-cohort-selector">
+          <span class="cohort-label">Cohort:</span>
+          <select class="cohort-dropdown" id="cohortSelect">
+            <option value="cs2026">Tech Campus CS-2026</option>
+            <option value="all">Inter-Collegiate League</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cohort Summary Stats -->
+      <div class="leaderboard-metrics-row">
+        <div class="metric-card">
+          <span class="metric-label">Active Scholars</span>
+          <span class="metric-value">8 Students</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Total Reviews Logged</span>
+          <span class="metric-value" id="lbTotalReviews">980</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Your Standing</span>
+          <span class="metric-value text-indigo" id="lbYourStanding">🥈 #2 Alex Chen</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Retention Algorithm</span>
+          <span class="metric-value text-emerald">SM-2 Adaptive</span>
+        </div>
+      </div>
+
+      <!-- Leaderboard Table -->
+      <div class="leaderboard-table-card">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">Rank</th>
+              <th>Scholar</th>
+              <th>University / Cohort</th>
+              <th>Streak</th>
+              <th>Reviews</th>
+              <th style="text-align: right;">Retention Points</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTbody">
+            <!-- Dynamically populated by app.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 4: RETENTION ANALYTICS & EBBINGHAUS DECAY CURVE      -->
+    <!-- ======================================================== -->
+    <section class="view-panel" id="viewAnalytics">
+      <div class="analytics-header">
+        <div>
+          <h1 class="view-heading">📈 Memory Retention & Forgetting Curve</h1>
+          <p class="view-subheading">Mathematical visualization of the Hermann Ebbinghaus decay curve alongside SuperMemo-2 spaced reinforcement intervals.</p>
+        </div>
+      </div>
+
+      <div class="chart-cards-grid">
+        <!-- Main Ebbinghaus Curve Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">The Spaced Repetition Advantage</h3>
+              <p class="chart-desc">Compares standard memory decay ($R = e^{-t/S}$) against SM-2 spaced review interventions (Days 1, 6, 16, 35).</p>
+            </div>
+            <div class="chart-legend-custom">
+              <span class="legend-chip legend-cramming">Cramming (Without Review)</span>
+              <span class="legend-chip legend-sm2">SM-2 Spaced Repetition</span>
+            </div>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="forgettingCurveChart"></canvas>
+          </div>
+          <div class="ebbinghaus-callout">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body">
+              <strong>Why SM-2 Works:</strong> Without review, students forget up to <strong>70% of material within 48 hours</strong>. With SM-2 scheduling, each review flattens the forgetting slope, extending memory half-life exponentially while requiring minimal study time.
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Due Schedule Forecast -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">7-Day Due Review Forecast</h3>
+              <p class="chart-desc">Anticipated workload distribution calculated from current SM-2 card intervals.</p>
+            </div>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="dueForecastChart"></canvas>
+          </div>
+          <div class="forecast-stats">
+            <div class="forecast-stat-item">
+              <span class="f-label">Cards Due Today</span>
+              <span class="f-val text-indigo" id="forecastTodayCount">5</span>
+            </div>
+            <div class="forecast-stat-item">
+              <span class="f-label">Total Flashcards</span>
+              <span class="f-val" id="forecastTotalCards">40</span>
+            </div>
+            <div class="forecast-stat-item">
+              <span class="f-label">Mastered (14d+)</span>
+              <span class="f-val text-emerald" id="forecastMasteredCount">6</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 5: DECK DETAIL & CARD MANAGEMENT                     -->
+    <!-- ======================================================== -->
+    <section class="view-panel" id="viewDeckDetail">
+      <div class="deck-detail-header">
+        <button class="btn btn-ghost btn-sm" id="btnBackFromDetail">
+          ← Back to All Decks
+        </button>
+        <div class="detail-header-row">
+          <div class="detail-title-group">
+            <span class="detail-deck-icon" id="detailDeckIcon">⚡</span>
+            <div>
+              <h1 class="detail-deck-title" id="detailDeckTitle">Algorithms</h1>
+              <p class="detail-deck-desc" id="detailDeckDesc">Master core algorithmic paradigms...</p>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-primary" id="btnStudyThisDeck">
+              <span>⚡</span> Study Due Cards (<span id="detailDueCount">5</span>)
+            </button>
+            <button class="btn btn-secondary" id="btnOpenNewCardModal">
+              <span>+</span> Add Card
+            </button>
+            <button class="btn btn-outline" id="btnExportCurrentDeck">
+              <span>📥</span> Export Deck
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards Table -->
+      <div class="cards-management-card">
+        <div class="cards-table-toolbar">
+          <input type="text" class="input-search" id="inputCardSearch" placeholder="Search cards by question, answer, or tag...">
+          <div class="cards-filter-group">
+            <button class="filter-pill active" data-filter="all">All (<span id="countFilterAll">0</span>)</button>
+            <button class="filter-pill" data-filter="due">Due Today (<span id="countFilterDue">0</span>)</button>
+            <button class="filter-pill" data-filter="mastered">Mastered (<span id="countFilterMastered">0</span>)</button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="cards-table">
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Tags</th>
+                <th style="width: 80px;">Reps</th>
+                <th style="width: 90px;">Interval</th>
+                <th style="width: 80px;">EF</th>
+                <th style="width: 130px;">Next Review</th>
+                <th style="width: 100px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="deckCardsTbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: AI FLASHCARD GENERATOR                           -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop hidden" id="modalAi">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">✨</span>
+          <div>
+            <h3 class="modal-title">AI Flashcard Generator</h3>
+            <p class="modal-subtitle">Paste any lecture paragraph, textbook excerpt, or study note to generate 5 high-yield Q&A flashcards.</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btnCloseAiModal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="form-label-row">
+            <label for="aiLectureText">Lecture Text / Paragraph</label>
+            <button class="btn-text-link" id="btnLoadAiSample">Load Sample Lecture Note</button>
+          </div>
+          <textarea id="aiLectureText" class="form-textarea" rows="5" placeholder="Paste lecture notes or textbook excerpt here... (e.g. QuickSort partitioning, Dijkstra shortest paths, CAP theorem)"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="aiTargetDeck">Target Subject Deck</label>
+            <select id="aiTargetDeck" class="form-select">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group" style="align-self: flex-end;">
+            <button class="btn btn-primary" id="btnGenerateAiCards">
+              <span>✨</span> Generate 5 Flashcards
+            </button>
+          </div>
+        </div>
+
+        <!-- Generated Cards Preview Container -->
+        <div class="ai-results-container hidden" id="aiResultsContainer">
+          <div class="ai-results-header">
+            <h4>Generated Flashcards Preview (5 Cards)</h4>
+            <span class="preview-badge">Review & Edit</span>
+          </div>
+          <div class="ai-cards-list" id="aiCardsList">
+            <!-- Cards populated here -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer hidden" id="aiModalFooter">
+        <button class="btn btn-secondary" id="btnCancelAi">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveAiCards">
+          <span>💾</span> Save All 5 Cards to Deck
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: CREATE / EDIT DECK                                -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop hidden" id="modalDeck">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalDeckTitle">Create New Subject Deck</h3>
+        <button class="modal-close" id="btnCloseDeckModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inputDeckName">Deck Name *</label>
+          <input type="text" id="inputDeckName" class="form-input" placeholder="e.g., Computer Networks, GRE Vocab">
+        </div>
+        <div class="form-group">
+          <label for="inputDeckDesc">Description</label>
+          <textarea id="inputDeckDesc" class="form-textarea" rows="2" placeholder="Brief summary of concepts covered in this deck"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="inputDeckCategory">Category</label>
+            <input type="text" id="inputDeckCategory" class="form-input" placeholder="e.g., Computer Science, GRE, Biology">
+          </div>
+          <div class="form-group" style="width: 100px;">
+            <label for="inputDeckIcon">Icon</label>
+            <input type="text" id="inputDeckIcon" class="form-input text-center" value="📚">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelDeck">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveDeck">Create Deck</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: CREATE / EDIT CARD                                -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop hidden" id="modalCard">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalCardTitle">Add New Flashcard</h3>
+        <button class="modal-close" id="btnCloseCardModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editCardId" value="">
+        <div class="form-group">
+          <label for="inputCardQuestion">Question / Concept Prompt *</label>
+          <textarea id="inputCardQuestion" class="form-textarea" rows="3" placeholder="Enter question or concept (e.g. What is the time complexity of QuickSort?)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="inputCardAnswer">Detailed Answer & Explanation *</label>
+          <textarea id="inputCardAnswer" class="form-textarea" rows="6" placeholder="Enter answer, key points, formula, or code snippet"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="inputCardTags">Tags (comma separated)</label>
+          <input type="text" id="inputCardTags" class="form-input" placeholder="Algorithms, Sorting, Must-Know">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelCard">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveCard">Save Flashcard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: IMPORT / EXPORT                                   -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop hidden" id="modalImport">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Import / Export Flashcard Decks</h3>
+        <button class="modal-close" id="btnCloseImportModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs-nav">
+          <button class="tab-btn active" id="tabImportCsv">Import CSV / Anki</button>
+          <button class="tab-btn" id="tabExportDeck">Export Deck</button>
+        </div>
+
+        <!-- Import Tab Panel -->
+        <div class="tab-panel active" id="panelImport">
+          <div class="form-group">
+            <label for="importDeckName">Deck Name for Imported Cards</label>
+            <input type="text" id="importDeckName" class="form-input" placeholder="Imported Deck Name">
+          </div>
+          <div class="form-group">
+            <label for="importCsvContent">Paste CSV Content (Format: Question,Answer,Tags)</label>
+            <textarea id="importCsvContent" class="form-textarea" rows="8" placeholder="Question,Answer,Tags
+What is a Binary Search Tree?,A binary tree where left child < node and right child > node,Trees;Data Structures
+What is the time complexity of MergeSort?,O(n log n) in all cases,Algorithms;Sorting"></textarea>
+          </div>
+          <button class="btn btn-primary" id="btnExecuteImport">
+            <span>📥</span> Import Cards
+          </button>
+        </div>
+
+        <!-- Export Tab Panel -->
+        <div class="tab-panel" id="panelExport">
+          <div class="form-group">
+            <label for="exportDeckSelect">Select Deck to Export</label>
+            <select id="exportDeckSelect" class="form-select">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="export-actions-row">
+            <button class="btn btn-primary" id="btnExportJson">
+              <span>📄</span> Export as JSON
+            </button>
+            <button class="btn btn-secondary" id="btnExportCsv">
+              <span>📊</span> Export as CSV (Anki Compatible)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: STREAK & ACHIEVEMENTS DETAILS                     -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop hidden" id="modalStreak">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🔥</span>
+          <div>
+            <h3 class="modal-title">Daily Study Streak</h3>
+            <p class="modal-subtitle">Consecutive active study days normalized to UTC midnight boundaries.</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btnCloseStreakModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="streak-detail-hero">
+          <span class="streak-detail-flame">🔥</span>
+          <div class="streak-detail-count" id="modalStreakCount">6</div>
+          <div class="streak-detail-label">Consecutive Active Study Days</div>
+        </div>
+
+        <h4 class="subhead">Badges & Achievements</h4>
+        <div class="badges-grid" id="modalBadgesList">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
